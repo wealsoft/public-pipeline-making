@@ -2,6 +2,13 @@ name: js-blog-build-deployment
 
 on:
   workflow_call:
+    secrets:
+      DOCKERHUB_USER_NAME:
+        required: true
+      DOCKERHUB_USER_PASSWORD:
+        required: true
+      PAT_PIPELINE_MAKING_REPO:
+        required: true
 
 jobs:
   build:
