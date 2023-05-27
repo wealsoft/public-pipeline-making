@@ -1,0 +1,65 @@
+name: js-blog-build-deployment
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: docker.io/daichiwealsoft/integration_test_job_base_image:v1.0.1
+      credentials:
+        username: ${{ secrets.DOCKERHUB_USER_NAME }}
+        password: ${{ secrets.DOCKERHUB_USER_PASSWORD }}
+      volumes:
+        - ${{ github.workspace }}:${{ github.workspace }}
+      env:
+        NODE_ENV: development
+      options: --cpus 2
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/checkout@v3
+        with:
+          repository: 'wealsoft/pipeline-making'
+          token: ${{ secrets.PAT_PIPELINE_MAKING_REPO }}
+          path: './pipeline-making'
+          ref: "feature/ozaki_poc"
+
+      - name: SetEnv
+        env:
+          PR_BRANCH_NAME: ${{ github.head_ref }}
+        shell: bash
+        run: |
+          echo build_tag=${PR_BRANCH_NAME#*/} >> $GITHUB_ENV
+
+      - name: SetConfigEnv
+        shell: bash
+        run: |
+          CONFIG_COMMON_LIST=$(yq eval '.common' ./.github/config.yml | sed 's/\:\ /\=/')
+          for config_common in $CONFIG_COMMON_LIST
+          do
+            echo "$config_common" >> $GITHUB_ENV
+          done
+
+      - name: Cache
+        uses: actions/cache@v3.0.11
+        with:
+          path: "**/node_modules"
+          key: node-modules-${{ github.sha }}
+          restore-keys: node-modules-
+
+      - name: App Src Build
+        shell: bash
+        run: |
+            sh ${{ github.workspace }}/.github/build.sh
+
+      - name: Unit Test
+        shell: bash
+        run: |
+            sh ${{ github.workspace }}/.github/unit_test.sh
+
+      - name: Integration Test
+        shell: bash
+        run: |
+            sh ${{ github.workspace }}/.github/integration_test.sh
