@@ -11,7 +11,7 @@ on:
       PIPELINE_REF:
         description: 'public-pipeline-makingのどのブランチをfetchするか'
         default: main
-        required: true
+        required: false
         type: string
       INTEGRATION_TEST:
         description: 'Seleniumによる統合テスト実行フラグ'
@@ -62,17 +62,34 @@ jobs:
             echo "$config_common" >> $GITHUB_ENV
           done
 
+      - name: Set Env for Pipeline Internal
+        shell: bash
+        run: |
+          echo UPLOAD_STATIC_FILES_PATH=${{ github.workspace }}/upload-static-files >> $GITHUB_ENV
+
       - name: Cache
         uses: actions/cache@v3.0.11
         with:
           path: "**/node_modules"
-          key: node-modules-${{ github.sha }}
+          key: node-modules-${{ hashFiles('**/package.json') }}
           restore-keys: node-modules-
+
+      - name: Making the directory for github artifact upload
+        shell: bash
+        run: |
+            mkdir ${{ env.UPLOAD_STATIC_FILES_PATH }}
 
       - name: App Src Build
         shell: bash
         run: |
-            . ${{ github.workspace }}/${{ env.SHELL_FILE_PATH }}
+            . ${{ github.workspace }}/${{ env.SHELL_FILE_PATH }} ${{ env.UPLOAD_STATIC_FILES_PATH }}
+
+      - name: Upload to github artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: built-artifact
+          path: ${{ env.UPLOAD_STATIC_FILES_PATH }}/*
+          retention-days: 7
 
   # TODObuildxを使用して差分ビルド・さらにcacheアクションを使用して高速化する
   # buildジョブと並列で動作させる
@@ -101,7 +118,7 @@ jobs:
         uses: actions/cache@v3.0.11
         with:
           path: "**/.buildx-cache"
-          key: docker-job-container-images-${{ hashFiles('**/.buildx-cache/*') }}
+          key: docker-job-container-images-${{ github.commit }}
           restore-keys: docker-job-container-images-
 
       - name: Build and push
@@ -144,7 +161,38 @@ jobs:
           path: './public-pipeline-making'
           ref: ${{ inputs.PIPELINE_REF }}
 
+      - name: SetConfigEnv
+        shell: bash
+        run: |
+          CONFIG_COMMON_LIST=$(yq eval '.common' ./.github/config.yml | sed 's/\:\ /\=/')
+          for config_common in $CONFIG_COMMON_LIST
+          do
+            echo "$config_common" >> $GITHUB_ENV
+          done
+
+      - name: Set Env for Internal
+        shell: bash
+        run: |
+          echo DOWNLOAD_STATIC_FILES_PATH=${{ github.workspace }}/download-static-files >> $GITHUB_ENV
+
+      - name: Making the directory for github artifact download
+        shell: bash
+        run: |
+            mkdir ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: built-artifact
+          path: ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
+
+      - name: Cache
+        uses: actions/cache@v3.0.11
+        with:
+          path: "**/node_modules"
+          key: node-modules-${{ hashFiles('**/package.json') }}
+          restore-keys: node-modules-
+
       - name: App Src Build
         shell: bash
         run: |
-            . ${{ github.workspace }}/${{ env.SHELL_FILE_PATH }}
+            . ${{ github.workspace }}/${{ env.INTEGRATION_TEST_SHELL_FILE_PATH }} ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
