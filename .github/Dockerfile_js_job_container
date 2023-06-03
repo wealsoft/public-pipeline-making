@@ -1,3 +1,5 @@
+# syntax=docker/dockerfile:1
+
 ##############################################################
 # Integration Test用RunnerBaseImage
 ##############################################################
@@ -16,12 +18,8 @@ RUN wget https://github.com/mikefarah/yq/releases/download/${VERSION}/${BINARY} 
     chmod +x /usr/bin/yq
 
 # パッケージリストの更新とGoogle Chromeのインストール
-RUN echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list && \
-    wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
-    apt-get update && apt-get install -y google-chrome-stable
-
-RUN wget https://github.com/maiha/xq.cr/releases/download/v0.3.0/xq -P /usr/bin && chmod +x /usr/bin/xq
-
-# google-chromeと同じバージョンをwget
-RUN wget https://chromedriver.storage.googleapis.com/111.0.5563.19/chromedriver_linux64.zip -P /tmp
-RUN unzip /tmp/chromedriver_linux64.zip -d /usr/local/bin && chmod 755 /usr/local/bin/chromedriver && rm -f /tmp/chromedriver_linux64.zip
+# 最新バージョンのgoogle-chromeを取得して、バージョン取得してそれに応じたChromeDriverのバージョンを取得するような複雑なインストール処理を実行する必要があるため、shellに外だし
+# windowsで開発している場合はshellの改行コードがLFになっていることを確認する。CRLFの場合は正常に動作しないので注意
+COPY selenium_requirement.sh .
+RUN chmod +x selenium_requirement.sh
+RUN ./selenium_requirement.sh
