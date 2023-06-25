@@ -136,12 +136,76 @@ jobs:
           rm -rf /tmp/.buildx-cache
           mv /tmp/.buildx-cache-new /tmp/.buildx-cache
 
+  # buildジョブと並列で動作させる
+  setup_integration_test_for_service_container:
+    runs-on: ubuntu-latest
+    if: ${{ inputs.INTEGRATION_TEST }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/checkout@v3
+        with:
+          repository: 'wealsoft/public-pipeline-making'
+          path: './public-pipeline-making'
+          ref: ${{ inputs.PIPELINE_REF }}
+
+      - name: Set Env for Internal
+        shell: bash
+        run: |
+          echo DOWNLOAD_STATIC_FILES_PATH=${{ github.workspace }}/download-static-files >> $GITHUB_ENV
+
+      - name: Making the directory for github artifact download
+        shell: bash
+        run: |
+            mkdir ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
+
+      - uses: actions/download-artifact@v3
+        with:
+          name: built-artifact
+          path: ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USER_NAME }}
+          password: ${{ secrets.DOCKERHUB_USER_PASSWORD }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Docker Image Cache
+        uses: actions/cache@v3.0.11
+        with:
+          path: "/tmp/.buildx-cache"
+          key: docker-service-container-images-${{ github.commit }}
+          restore-keys: docker-service-container-images-
+
+      - name: Build and push
+        uses: docker/build-push-action@v4
+        with:
+          context: ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
+          file: ${{ github.workspace }}/public-pipeline-making/.github/Dockerfile_github_pages
+          push: true
+          tags: docker.io/daichiwealsoft/integration_test_service_image:latest
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
+
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
   # dockerhub経由でコンテナーイメージを渡すようにする
   # 静的資材はartifact経由で受け渡す
   integration_test:
     runs-on: ubuntu-latest
+    services:
+      redis:
+        image: docker.io/daichiwealsoft/integration_test_service_image:latest
+        ports:
+          - 80:4000
     if: ${{ inputs.INTEGRATION_TEST }}
-    needs: ['build','setup_integration_test']
+    needs: ['build','setup_integration_test','setup_integration_test_for_service_container']
     container:
       image: docker.io/daichiwealsoft/integration_test_job_base_image:latest
       credentials:
