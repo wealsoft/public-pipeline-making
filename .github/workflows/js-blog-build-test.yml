@@ -264,7 +264,7 @@ jobs:
           key: node-modules-${{ hashFiles('**/package.json') }}
           restore-keys: node-modules-
 
-      - name: App Src Build
+      - name: Integration Test
         shell: bash
         run: |
             . ${{ github.workspace }}/${{ env.INTEGRATION_TEST_SHELL_FILE_PATH }} ${{ env.DOWNLOAD_STATIC_FILES_PATH }}
