@@ -211,7 +211,7 @@ jobs:
       service:
         image: docker.io/daichiwealsoft/integration_test_service_image:latest
         ports:
-          - 80:4000
+          - 4000:4000
     if: ${{ inputs.INTEGRATION_TEST }}
     needs: ['build','setup_integration_test','setup_integration_test_for_service_container']
     container:
