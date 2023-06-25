@@ -138,6 +138,7 @@ jobs:
 
   # buildジョブと並列で動作させる
   setup_integration_test_for_service_container:
+    needs: ['build']
     runs-on: ubuntu-latest
     if: ${{ inputs.INTEGRATION_TEST }}
     steps:
