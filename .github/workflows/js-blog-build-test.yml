@@ -201,7 +201,7 @@ jobs:
   integration_test:
     runs-on: ubuntu-latest
     services:
-      redis:
+      service:
         image: docker.io/daichiwealsoft/integration_test_service_image:latest
         ports:
           - 80:4000
